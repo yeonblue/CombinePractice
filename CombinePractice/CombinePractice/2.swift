@@ -67,6 +67,6 @@ class CombinePractice2: UIViewController {
         // Received Value L
         // Received Value M
         // Received Value N
-        // Completed
+        // Completion
     }
 }
