@@ -295,5 +295,94 @@ test.dropFirst(50)
 
 // MARK: - Combining Operators
 
+// 1. prepend, append
+let arr1 = (1...3).publisher
+let arr2 = (201...203).publisher
+
+arr1.prepend(50, 60)
+    .prepend([33, 44])
+    .prepend(arr2) // publisher도 pretend 가능
+    .append(-1) // append는 맨 뒤에 추가
+    .sink {
+    print($0)
+}
+
+// 결과
+// 201
+// 202
+// 203
+// 33
+// 44
+// 50
+// 60
+// 1
+// 2
+// 3
+// -1
+
+// 2. swicthToLastest
+
+let sub1 = PassthroughSubject<String, Never>()
+let sub2 = PassthroughSubject<String, Never>()
+
+let publishers = PassthroughSubject<PassthroughSubject<String, Never>, Never>()
+
+publishers
+    .switchToLatest()
+    .sink {
+        print($0)
+    }
+
+publishers.send(sub1)
+sub1.send("sub1: 1")
+sub2.send("sub2: 1")
+
+publishers.send(sub2) // sub2로 switch
+sub1.send("sub1: 2")
+sub2.send("sub2: 2")
+
+// 결과
+// sub1: 1
+// sub2: 2
+
+// 활용 예시
+let imageNames = ["monkey", "tiger", "lion"]
+var index = 0
+
+func getImage() -> AnyPublisher<UIImage?, Never> {
+    // Future Publisher: A publisher that eventually produces a single value and then finishes or fails.
+    return Future<UIImage?, Never> { promise in
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) {
+            promise(.success(UIImage(named: imageNames[index])))
+        }
+    }
+    .print()
+    .map { $0 }
+    .receive(on: RunLoop.main)
+    .eraseToAnyPublisher()
+}
+let tap = PassthroughSubject<Void, Never>()
+let subscription = tap.map { _ in
+        getImage()
+    }
+    .switchToLatest()
+    .sink {
+        print($0)
+    }
+
+// monkey
+tap.send()
+
+// tiger
+DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+    index += 1
+    tap.send()
+}
+
+// lion
+DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+    index += 1
+    tap.send()
+}
 
 // MARK: - Sequence Operators
