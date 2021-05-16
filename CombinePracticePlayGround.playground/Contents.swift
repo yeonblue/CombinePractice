@@ -569,6 +569,177 @@ func getPost() -> AnyPublisher<[PostData], Error> {
 let cancelable = getPost().sink { _ in
     print("completed")
 } receiveValue: { data in
-    print(data)
+    //print(data)
 }
 
+// MARK: - Debugging Combine
+
+// 1. print
+let printPublisher = (1...10).publisher
+printPublisher
+    .print("DEBUG")
+    .sink {
+        print($0)
+    }
+    
+// 결과
+// DEBUG: receive subscription: (1...10)
+// DEBUG: request unlimited
+// DEBUG: receive value: (1)
+// 1
+// DEBUG: receive value: (2)
+// 2
+// DEBUG: receive value: (3)
+// 3
+// DEBUG: receive value: (4)
+// 4
+// DEBUG: receive value: (5)
+// 5
+// DEBUG: receive value: (6)
+// 6
+// DEBUG: receive value: (7)
+// 7
+// DEBUG: receive value: (8)
+// 8
+// DEBUG: receive value: (9)
+// 9
+// DEBUG: receive value: (10)
+// 10
+// DEBUG: receive finished
+
+// 2. handleEvents
+guard let jsonURL2 = URL(string: "http://jsonplaceholder.typicode.com/posts") else { fatalError("InvalidURL") }
+
+let request = URLSession.shared.dataTaskPublisher(for: jsonURL2)
+request // 이렇게 하면 hold하는 것이 없어서 error
+    .handleEvents(receiveSubscription: { subscription in
+        print("Subscription Received: ", subscription)
+    }, receiveOutput: { data, response in
+        print("Data:", data, "Response:", response)
+    }, receiveCompletion: { comp in
+        print("comp:", comp)
+    }, receiveCancel: {
+        print("Received Cancel")
+    }, receiveRequest: { request in
+        print("Received Request:", request)
+    })
+    .sink(receiveCompletion: { print($0) }) { data, response in
+        print(data)
+    }
+
+let handleEventSubscription = request 
+    .handleEvents(receiveSubscription: { subscription in
+        print("Subscription Received: ", subscription)
+    }, receiveOutput: { data, response in
+        print("Data:", data, "Response:", response)
+    }, receiveCompletion: { comp in
+        print("comp:", comp)
+    }, receiveCancel: {
+        print("Received Cancel")
+    }, receiveRequest: { request in
+        print("Received Request:", request)
+    })
+    .sink(receiveCompletion: { print($0) }) { data, response in
+        print(data)
+    }
+
+// MARK: - Timer
+// 일정 간격으로 event 발생 등 사용
+
+// 1. RunLoop
+    
+let runLoop = RunLoop.main
+let timerPublisher1 = runLoop.schedule(after: runLoop.now,
+                                       interval: .seconds(2),
+                                       tolerance: .milliseconds(100),
+                                       options: .none) {
+    print("Timer Fired")
+}
+
+runLoop.schedule(after: .init(Date(timeIntervalSinceNow: 3.0))) {
+    timerPublisher1.cancel() // cancel하지 않으면 위의 스케쥴러가 2초마다 계속 반복
+}
+
+// 2. Timer Class
+
+let timerPublisher2 =
+    Timer.publish(every: 1.0, on: .main, in: .common) // tracking: user의 반응에 따라 동작 가능
+    .autoconnect()
+    .scan(0) { counter, value in
+        counter + 1
+    }
+    .sink { value in
+        print("Timer Fired!", value)
+        
+        // 결과
+        // Timer Fired! 3
+        // Timer Fired! 4
+        // Timer Fired! 5.... 1초마다 1씩 counter 증가 하여 반영
+    }
+
+// 3. DispatchQueue
+
+let queue = DispatchQueue.main
+let queueSubject = PassthroughSubject<Int, Never>()
+
+var count = 0
+
+let cancellable = queue.schedule(after: queue.now,           // 별도 변수에 저장 필수
+                                 interval: .seconds(1)) {
+    queueSubject.send(count)
+    count += 1
+}
+
+let queueSubscription = queueSubject.sink { value in
+    print("Value:", value)
+}
+
+
+// MARK: - Resources Combine
+
+// 1. share
+
+guard let jsonURL3 = URL(string: "http://jsonplaceholder.typicode.com/posts") else { fatalError("InvalidURL") }
+
+var shareSub3: AnyCancellable? = nil
+
+let shareRequest = URLSession.shared.dataTaskPublisher(for: jsonURL3)
+    .share() // share를 이용하면 동일한 publisher를 구독하는 다른 subscriber가 있어도 공용하여 각각 stream이 발생하지 않음.
+             // 첫번째 subscriber만 다운받고 두번째부터는 share
+
+let shareSub1 = request.sink { _ in
+    print("shareSub1 completion")
+} receiveValue: {
+    print("shareSub2")
+    print($0)
+}
+
+let shareSub2 = request.sink { _ in
+    print("shareSub2 completion")
+} receiveValue: {
+    print("shareSub2")
+    print($0)
+}
+
+
+// 3초 후에 할당되므로 이미 request는 이미 다운로드 완료
+// 따라서 shareSub3는 값을 얻지 못함
+DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+    shareSub3 = request.sink { _ in
+        print("shareSub3 completion")
+    } receiveValue: {
+        print("shareSub3")
+        print($0)
+    }
+}
+
+
+// 2. multicast
+
+let multiSubject = PassthroughSubject<Data, URLError>()
+let multiRequest = URLSession.shared.dataTaskPublisher(for: jsonURL3)
+    .map { $0.data }
+    .multicast(subject: multiSubject)
+
+multiRequest.connect() // 시간이 지난 이후 subscription해도 연결을 해줌
+multiSubject.send(Data())
