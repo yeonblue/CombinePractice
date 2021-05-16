@@ -32,7 +32,7 @@ struct Post: Codable {
 class TableViewController: UITableViewController {
     
     private var webservice = Webservice()
-    private var cancellable: AnyCancellable?
+    private var cancellables: Set<AnyCancellable> = []
     // 뷰컨트롤러가 있는 동안 subscription은 유지, 이게 없으면 한번 값이 불르고 나면 메모리에서 지워짐
     
     private var posts = [Post]() {
@@ -44,9 +44,10 @@ class TableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.cancellable = self.webservice.getPosts()
+        self.webservice.getPosts()
             .catch { _ in Just(self.posts)} // decode fail등 에러 발생 시 전달할 데이터, 이미 empty로 초기화 되어있음.
             .assign(to: \.posts, on: self) // 값이 오면 특정 property에 할당
+            .store(in: &cancellables)
         
     }
     
