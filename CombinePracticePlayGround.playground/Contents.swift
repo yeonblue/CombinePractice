@@ -374,15 +374,72 @@ let subscription = tap.map { _ in
 tap.send()
 
 // tiger
-DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-    index += 1
-    tap.send()
-}
+// DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+//    index += 1
+//    tap.send()
+//}
 
 // lion
-DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-    index += 1
-    tap.send()
-}
+// DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+//    index += 1
+//    tap.send()
+//}
+
+
+// 3. merge
+
+let pub1 = PassthroughSubject<Int, Never>()
+let pub2 = PassthroughSubject<Int, Never>()
+
+pub1
+    .merge(with: pub2)
+    .sink {
+        print($0)
+    }
+
+pub1.send(100)
+pub2.send(101)
+
+// 4. combineLatest
+// pub1            a     b         c
+// pub2  1    2               3
+// combine         2a    2b   3b   3c
+
+let publish1 = PassthroughSubject<Int, Never>()
+let publish2 = PassthroughSubject<String,Never>()
+
+publish1.combineLatest(publish2)
+    .sink { intVal, strVal in
+        print("intVal: ", intVal, "strVal: ", strVal)
+    }
+
+publish1.send(1)
+publish1.send(2)
+publish2.send("a")
+publish2.send("b")
+publish1.send(3)
+publish2.send("c")
+
+
+// 4. zip
+// pub1            a     b         c    d
+// pub2  1    2               3
+// combine         1a   2b        3c
+
+let zipPublish1 = PassthroughSubject<Int, Never>()
+let zipPublish2 = PassthroughSubject<String,Never>()
+
+zipPublish1.zip(zipPublish2)
+    .sink { intVal, strVal in
+        print("intVal: ", intVal, "strVal: ", strVal)
+    }
+
+zipPublish1.send(1)
+zipPublish1.send(2)
+zipPublish2.send("a")
+zipPublish2.send("b")
+zipPublish1.send(3)
+zipPublish2.send("c")
+zipPublish2.send("d")
 
 // MARK: - Sequence Operators
