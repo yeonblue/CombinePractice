@@ -443,3 +443,110 @@ zipPublish2.send("c")
 zipPublish2.send("d")
 
 // MARK: - Sequence Operators
+
+// 1. min and max
+let minMaxPublisher = [1, -3, 22, 999].publisher
+
+minMaxPublisher
+    .min() // .max()
+    .sink {
+        print($0)
+    }
+
+
+// 2. first and last
+let firstPublisher = ["A", "B", "C", "D"].publisher
+firstPublisher
+    .first()
+    .sink {
+        print($0)
+    }
+
+firstPublisher
+    .first(where: {
+        "Cat".contains($0)
+    })
+    .sink {
+        print($0)
+    }
+
+firstPublisher
+    .last()
+    .sink {
+        print($0) // D
+    }
+
+// 3. output
+let outputPublish = ["A", "B", "C", "D"].publisher
+
+outputPublish.output(at: 2)
+    .sink {
+        print($0) // C가 반환
+    }
+
+outputPublish.output(in: (0...2))
+    .sink {
+        print($0) // A, B, C
+    }
+
+// 4. count
+let countPulbisher = ["A", "B", "C", "D"].publisher
+let countPassPulbisher = PassthroughSubject<Int, Never>()
+
+countPulbisher.count()
+    .sink {
+        print($0) // 4가 리턴(총 4개)
+    }
+
+countPassPulbisher.count()
+    .sink {
+        print($0)  // 5, 15, 25, finished를 보냈으므로 3이 리턴
+    }
+
+countPassPulbisher.send(5)
+countPassPulbisher.send(15)
+countPassPulbisher.send(25)
+countPassPulbisher.send(completion: .finished)
+
+// 5. contains
+
+let containPublisher = ["A", "B", "C", "D"].publisher
+containPublisher.contains("C")
+    .sink {
+        print($0) // C가 있으므로 true가 반환
+    }
+
+// 6. allSatisfy
+let allSatisfyPublisher = [1, 2, 3, 4, 5, 6].publisher
+allSatisfyPublisher
+    .allSatisfy {
+        $0 % 2 == 0 // 모든 요소가 해당 조건을 만족해야 함. 홀수가 있으므로 false
+    }
+    .sink {
+        print($0)
+    }
+
+// 7. reduce
+
+let reducePublisher = [1, 2, 3, 4, 5, 6].publisher
+
+reducePublisher
+    .reduce(0) { accumulator, value in
+        print("accumulator: ", accumulator, " value: ", value)
+        return accumulator + value
+    }
+    .sink {
+        print($0)
+    }
+
+// 결과
+// accumulator:  0  value:  1
+// accumulator:  1  value:  2
+// accumulator:  3  value:  3
+// accumulator:  6  value:  4
+// accumulator:  10  value:  5
+// accumulator:  15  value:  6
+// 21
+
+
+// MARK: - Network
