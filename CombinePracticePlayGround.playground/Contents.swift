@@ -550,3 +550,25 @@ reducePublisher
 
 
 // MARK: - Network
+
+struct PostData: Codable {
+    let title: String
+    let body: String
+}
+
+let jsonURL = URL(string: "jsonplaceholder.typicode.com/posts")
+func getPost() -> AnyPublisher<[PostData], Error> {
+    guard let jsonURL = URL(string: "http://jsonplaceholder.typicode.com/posts") else { fatalError("Invalid URL")}
+    
+    return URLSession.shared.dataTaskPublisher(for: jsonURL)
+        .map { $0.data }
+        .decode(type: [PostData].self, decoder: JSONDecoder())
+        .eraseToAnyPublisher()
+}
+
+let cancelable = getPost().sink { _ in
+    print("completed")
+} receiveValue: { data in
+    print(data)
+}
+
